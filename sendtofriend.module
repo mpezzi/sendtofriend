@@ -1,0 +1,136 @@
+<?php
+
+/**
+ * @file
+ * Provides a simple "Send to a Friend" ajax form.
+ */
+
+
+/**
+ * Implements hook_mail().
+ */
+function sendtofriend_mail($key, &$message, $params) {
+  switch ( $key ) {
+    case 'sendtofriend':
+      $message['subject'] = t('sendtofriend subject');
+      $message['body'][] = t('sendtofriend body 1');
+      $message['body'][] = t('sendtofriend body 2');
+  }
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function sendtofriend_block_info() {
+  $blocks = array();
+  $blocks['sendtofriend'] = array(
+    'info' => t('Send to a Friend'),
+    'cache' => DRUPAL_NO_CACHE,
+  );
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function sendtofriend_block_view($delta = '') {
+  $block = array();
+  if ( $delta == 'sendtofriend' ) {
+    $block['subject'] = t('Send to a friend');
+    $block['content'] = drupal_get_form('sendtofriend_block_form');
+  }
+  return $block;
+}
+
+/**
+ * TK
+ */
+function sendtofriend_block_form($form, &$form_state) {
+  $form = array(
+    '#prefix' => '<div id="sendtofriend-form-wrapper">',
+    '#suffix' => '</div>',
+  );
+  $form['to_mail'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Friends e-mail address'),
+    '#size' => 30,
+    '#maxlength' => 255,
+    '#required' => TRUE,
+  );
+  $form['from_mail'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Your e-mail address'),
+    '#size' => 30,
+    '#maxlength' => 255,
+    '#required' => TRUE,
+  );
+  $form['from_first_name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Your first name'),
+    '#size' => 30,
+    '#maxlength' => 255,
+    '#required' => TRUE,
+  );
+  $form['from_last_name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Your last name'),
+    '#size' => 30,
+    '#maxlength' => 255,
+    '#required' => TRUE,
+  );
+  $form['message'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Message'),
+    '#maxlength' => 255,
+    '#required' => TRUE,
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Send'),
+    '#ajax' => array(
+      'callback' => 'sendtofriend_block_form_ajax_callback',
+      'wrapper' => 'sendtofriend-form-wrapper',
+      'name' => 'submit1',
+    ),
+  );
+  return $form;
+}
+
+/**
+ * Validate callback for sendtofriend_block_form.
+ */
+function sendtofriend_block_form_validate($form, &$form_state) {
+  if ( !sendtofriend_is_valid_email($form_state['values']['to_mail']) ) {
+    form_set_error('to_mail', t('Please provide a valid email address.'));
+  }
+  if ( !sendtofriend_is_valid_email($form_state['values']['from_mail']) ) {
+    form_set_error('from_mail', t('Please provide a valid email address.'));
+  }
+}
+
+/**
+ * Submit callback for sendtofriend_block_form.
+ */
+function sendtofriend_block_form_submit($form, &$form_state) {
+  //dpm(__FUNCTION__);
+}
+
+/**
+ * TK
+ */
+function sendtofriend_block_form_ajax_callback($form, $form_state) {
+  // Show for with validation errors.
+  if ( form_get_errors() ) {
+    return $form;
+  }
+
+  // Replace form with a success message.
+  return array('#markup' => t('Form submitted'));
+}
+
+/**
+ * Determine if a string is a valid e-mail address.
+ */
+function sendtofriend_is_valid_email($string) {
+  return preg_match("^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,3})$^", $string);
+}
