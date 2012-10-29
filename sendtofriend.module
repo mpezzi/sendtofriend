@@ -11,10 +11,20 @@
  */
 function sendtofriend_mail($key, &$message, $params) {
   switch ( $key ) {
-    case 'sendtofriend':
-      $message['subject'] = t('sendtofriend subject');
-      $message['body'][] = t('sendtofriend body 1');
-      $message['body'][] = t('sendtofriend body 2');
+    case 'refer_message':
+
+      // @TODO: Better way of implementing this?
+      // Look for certain param values and set them up as escaped arguments for use in format_string.
+      $args = array();
+      foreach ( $params as $param_key => $param ) {
+        if ( in_array($param_key, array('to_mail', 'from_mail', 'from_first_name', 'from_last_name', 'message')) ) {
+          $args['@' . $param_key] = $param;
+        }
+      }
+
+      $message['subject'] = format_string(variable_get('sendtofriend_' . $key . '_subject', 'Send to friend subject copy'), $args);
+      $message['body'][] = format_string(variable_get('sendtofriend_' . $key . '_body', 'Send to friend body copy'), $args);
+      $message['body'][] = 'test';
   }
 }
 
@@ -87,7 +97,7 @@ function sendtofriend_block_form($form, &$form_state) {
   $form['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Send'),
-    '#ajax' => array(
+    '#xajax' => array(
       'callback' => 'sendtofriend_block_form_ajax_callback',
       'wrapper' => 'sendtofriend-form-wrapper',
       'name' => 'submit1',
@@ -112,7 +122,7 @@ function sendtofriend_block_form_validate($form, &$form_state) {
  * Submit callback for sendtofriend_block_form.
  */
 function sendtofriend_block_form_submit($form, &$form_state) {
-  //dpm(__FUNCTION__);
+  sendtofriend_mail_send($form_state['values']);
 }
 
 /**
@@ -126,6 +136,25 @@ function sendtofriend_block_form_ajax_callback($form, $form_state) {
 
   // Replace form with a success message.
   return array('#markup' => t('Form submitted'));
+}
+
+/**
+ * Sends an e-mail.
+ */
+function sendtofriend_mail_send($form_values) {
+  $to = $form_values['to_mail'];
+  $from = variable_get('site_mail', 'admin@example.com');
+  $params = $form_values;
+  $language = language_default();
+  $send = FALSE;
+
+  $result = drupal_mail('sendtofriend', 'refer_message', $to, $language, $params, $from, $send);
+  if ( isset($result['result']) && $result['result'] == TRUE ) {
+    drupal_set_message(t('Your message has been sent.'));
+  }
+  else {
+    drupal_set_message(t('There was a problem sending your message and it was not sent.'), 'error');
+  }
 }
 
 /**
