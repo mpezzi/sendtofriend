@@ -7,6 +7,23 @@
 
 
 /**
+ * Implements hook_menu().
+ */
+function sendtofriend_menu() {
+  $items = array();
+  $items['admin/config/people/sendtofriend'] = array(
+    'title' => 'Send to a friend settings',
+    'description' => 'Configure send to friend module.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sendtofriend_admin_settings_form'),
+    'access arguments' => array('administer sendtofriend settings'),
+    'file' => 'sendtofriend.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+  return $items;
+}
+
+/**
  * Implements hook_mail().
  */
 function sendtofriend_mail($key, &$message, $params) {
@@ -17,14 +34,15 @@ function sendtofriend_mail($key, &$message, $params) {
       // Look for certain param values and set them up as escaped arguments for use in format_string.
       $args = array();
       foreach ( $params as $param_key => $param ) {
-        if ( in_array($param_key, array('to_mail', 'from_mail', 'from_first_name', 'from_last_name', 'message')) ) {
+        if ( in_array($param_key, array('to_mail', 'from_mail', 'from_first_name', 'from_last_name', 'message', 'site_url', 'site_link')) ) {
           $args['@' . $param_key] = $param;
         }
       }
 
-      $message['subject'] = format_string(variable_get('sendtofriend_' . $key . '_subject', 'Send to friend subject copy'), $args);
-      $message['body'][] = format_string(variable_get('sendtofriend_' . $key . '_body', 'Send to friend body copy'), $args);
-      $message['body'][] = 'test';
+      $message['subject'] = check_plain(format_string(variable_get('sendtofriend_' . $key . '_subject', 'Send to friend subject copy'), $args));
+      $message['body'][] = check_plain(format_string(variable_get('sendtofriend_' . $key . '_body', 'Send to friend body copy'), $args));
+
+      break;
   }
 }
 
@@ -94,10 +112,14 @@ function sendtofriend_block_form($form, &$form_state) {
     '#maxlength' => 255,
     '#required' => TRUE,
   );
+  $form['path'] = array(
+    '#type' => 'hidden',
+    '#value' => '<front>',
+  );
   $form['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Send'),
-    '#xajax' => array(
+    '#ajax' => array(
       'callback' => 'sendtofriend_block_form_ajax_callback',
       'wrapper' => 'sendtofriend-form-wrapper',
       'name' => 'submit1',
@@ -122,7 +144,17 @@ function sendtofriend_block_form_validate($form, &$form_state) {
  * Submit callback for sendtofriend_block_form.
  */
 function sendtofriend_block_form_submit($form, &$form_state) {
-  sendtofriend_mail_send($form_state['values']);
+  $message = array(
+    'to_mail' => $form_state['values']['to_mail'],
+    'from_mail' => $form_state['values']['from_mail'],
+    'from_first_name' => $form_state['values']['from_first_name'],
+    'from_last_name' => $form_state['values']['from_last_name'],
+    'message' => $form_state['values']['message'],
+    'site_url' => url('<front>', array('absolute' => TRUE)),
+    'site_link' => url($form_state['values']['path'], array('absolute' => TRUE)),
+  );
+
+  sendtofriend_mail_send($message);
 }
 
 /**
@@ -135,18 +167,18 @@ function sendtofriend_block_form_ajax_callback($form, $form_state) {
   }
 
   // Replace form with a success message.
-  return array('#markup' => t('Form submitted'));
+  return array('#markup' => variable_get('sendtofriend_refer_message_success', ''));
 }
 
 /**
  * Sends an e-mail.
  */
-function sendtofriend_mail_send($form_values) {
-  $to = $form_values['to_mail'];
+function sendtofriend_mail_send($message) {
+  $to = $message['to_mail'];
   $from = variable_get('site_mail', 'admin@example.com');
-  $params = $form_values;
+  $params = $message;
   $language = language_default();
-  $send = FALSE;
+  $send = TRUE;
 
   $result = drupal_mail('sendtofriend', 'refer_message', $to, $language, $params, $from, $send);
   if ( isset($result['result']) && $result['result'] == TRUE ) {
